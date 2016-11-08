@@ -1,0 +1,32 @@
+OBJDIR = ./obj
+TARGETDIR = ./lib
+SHAREDLIB_FLAGS := -shared -fPIC
+
+OBJECTS  = $(addprefix $(OBJDIR)/, $(SOURCES:.c=.o) )
+DEPENDS  = $(OBJECTS:.o=.d)
+
+# SharedLib Linker Option
+LINK_PARAM = -Wl,-no-as-needed
+
+# Target Setting
+TARGET = $(TARGETDIR)/libtccvdec.so
+SOURCES  = tcc_vpudec_intf.c tcc_vdec_api.c
+
+$(TARGET): $(OBJECTS)
+	@[ -d "./lib" ] || mkdir -p "./lib"
+	$(CC) $(SHAREDLIB_FLAGS) $(LINK_PARAM) -o $@ $^
+#	$(STRIP) $(TARGET)
+
+$(OBJDIR)/%.o: %.c
+	@[ -d $(OBJDIR) ] || mkdir -p $(OBJDIR)
+	$(CC) -fPIC $(CFLAGS) -o $@ -c $<
+
+all: clean $(TARGET)
+
+clean:
+	rm -f $(OBJECTS) $(DEPENDS) $(TARGET)
+	rm -rf $(OBJDIR)
+	rm -rf $(TARGETDIR)
+
+-include $(DEPENDS)
+
