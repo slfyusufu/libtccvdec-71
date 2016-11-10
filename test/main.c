@@ -116,7 +116,7 @@ static int h264RawDataDecode()
 		fclose( fp );
 		
 		// Decode
-		unsigned int outputdata[11] = {0};
+		//unsigned int outputdata[11] = {0};
 		iret = tcc_vdec_process( (unsigned char*)data, (int)lSize);
 		
 		if( iret < 0 ){
@@ -126,7 +126,7 @@ static int h264RawDataDecode()
 		free( data );
 		data = NULL;
 		
-		usleep( 20000 );
+		usleep( 10000 );
 	}
 	
 	return 0;
@@ -134,9 +134,9 @@ static int h264RawDataDecode()
 
 int main( int argc, char** argv )
 {
-	unsigned char* data = NULL;
-	int size = 0;
-	uint64_t inDisplayTick = 0;
+	//unsigned char* data = NULL;
+	//int size = 0;
+	//uint64_t inDisplayTick = 0;
 	
 	tcc_vdec_init(0,0,800,480);
 	tcc_vdec_open();

@@ -159,19 +159,19 @@ typedef struct dec_private_data {
 	unsigned int Display_index[VPU_BUFF_COUNT];
 	unsigned int max_fifo_cnt;
 //error process
-	signed char 		seq_header_init_error_count;
-	unsigned char 		ConsecutiveVdecFailCnt;
+	signed int 		seq_header_init_error_count;
+	unsigned int 		ConsecutiveVdecFailCnt;
 	signed int			ConsecutiveBufferFullCnt;
 
 #ifdef RESTORE_DECODE_ERR
 	unsigned char* 		seqHeader_backup;
 	unsigned int 		seqHeader_len;
-	unsigned char 		cntDecError;
+	unsigned int 		cntDecError;
 #endif
 
 #ifdef CHECK_SEQHEADER_WITH_SYNCFRAME
 	unsigned char*		sequence_header_only;
-	unsigned char 		sequence_header_size;
+	long 		sequence_header_size;
 	unsigned char 		need_sequence_header_attachment;
 #endif
 }tDEC_PRIVATE;
@@ -518,12 +518,12 @@ void print_user_data(unsigned char * pUserData)
 	unsigned char * pTmpPTR;
 	unsigned char * pRealData;
 	unsigned int nNumUserData;
-	unsigned int nTotalSize;
+	//unsigned int nTotalSize;
 	unsigned int nDataSize;
 
 	pTmpPTR = pUserData;
 	nNumUserData = (pTmpPTR[0] << 8) | pTmpPTR[1];
-	nTotalSize = (pTmpPTR[2] << 8) | pTmpPTR[3];
+	//nTotalSize = (pTmpPTR[2] << 8) | pTmpPTR[3];
 
 	pTmpPTR = pUserData + 8;
 	pRealData = pUserData + (8 * 17);
@@ -1082,7 +1082,7 @@ static int DECODER_DEC( tDEC_FRAME_INPUT *pInput, tDEC_FRAME_OUTPUT *pOutput, tD
 	int nLen = 0;
 	int decode_result;	
 	unsigned int input_offset = 0;	
-	unsigned char retry_input = 0;
+	//unsigned char retry_input = 0;
 	dec_disp_info_t dec_disp_info_tmp;
 	
 	memset(pOutput, 0x00, sizeof(tDEC_FRAME_OUTPUT));
@@ -1238,8 +1238,8 @@ static int DECODER_DEC( tDEC_FRAME_INPUT *pInput, tDEC_FRAME_OUTPUT *pOutput, tD
 #endif
 		if( dec_private->pVideoDecodInstance.gsVDecInit.m_iBitstreamFormat == STD_AVC)
 		{	
-			width = (dec_private->pVideoDecodInstance.gsVDecOutput.m_pInitialInfo->m_iPicWidth- dec_private->pVideoDecodInstance.gsVDecOutput.m_pInitialInfo->m_iAvcPicCrop.m_iCropLeft - dec_private->pVideoDecodInstance.gsVDecOutput.m_pInitialInfo->m_iAvcPicCrop.m_iCropRight);
-			height = (dec_private->pVideoDecodInstance.gsVDecOutput.m_pInitialInfo->m_iPicHeight - dec_private->pVideoDecodInstance.gsVDecOutput.m_pInitialInfo->m_iAvcPicCrop.m_iCropBottom - dec_private->pVideoDecodInstance.gsVDecOutput.m_pInitialInfo->m_iAvcPicCrop.m_iCropTop);
+			width = (dec_private->pVideoDecodInstance.gsVDecOutput.m_pInitialInfo->m_iPicWidth- dec_private->pVideoDecodInstance.gsVDecOutput.m_pInitialInfo->m_iPicCrop.m_iCropLeft - dec_private->pVideoDecodInstance.gsVDecOutput.m_pInitialInfo->m_iPicCrop.m_iCropRight);
+			height = (dec_private->pVideoDecodInstance.gsVDecOutput.m_pInitialInfo->m_iPicHeight - dec_private->pVideoDecodInstance.gsVDecOutput.m_pInitialInfo->m_iPicCrop.m_iCropBottom - dec_private->pVideoDecodInstance.gsVDecOutput.m_pInitialInfo->m_iPicCrop.m_iCropTop);
 		}
 		else
 		{
@@ -1502,7 +1502,7 @@ static int DECODER_DEC( tDEC_FRAME_INPUT *pInput, tDEC_FRAME_OUTPUT *pOutput, tD
 #if 1
 	if(dec_private->pVideoDecodInstance.gsVDecOutput.m_DecOutInfo.m_iDecodingStatus == VPU_DEC_SUCCESS_FIELD_PICTURE)
 	{
-		dec_disp_info_t dec_disp_info_tmp;
+		//dec_disp_info_t dec_disp_info_tmp;
 		int inTS = pInput->nTimeStamp;
 		
 		dec_disp_info_tmp.m_iFrameDuration = 1;
@@ -1538,7 +1538,8 @@ static int DECODER_DEC( tDEC_FRAME_INPUT *pInput, tDEC_FRAME_OUTPUT *pOutput, tD
 		int frameType = get_frame_type_for_frame_skipping( dec_private->pVideoDecodInstance.gsVDecInit.m_iBitstreamFormat, 
 														dec_private->pVideoDecodInstance.gsVDecOutput.m_DecOutInfo.m_iPicType, 
 														dec_private->pVideoDecodInstance.gsVDecOutput.m_DecOutInfo.m_iPictureStructure );
-
+		if (frameType == 0)
+			DebugPrint("Unknow Frame!");
 		if( dec_private->pVideoDecodInstance.gsVDecInput.m_iFrameSearchEnable )
 		{
 			dec_private->frameSearchOrSkip_flag = 2;//I-frame Search Mode disable and B-frame Skip Mode enable
@@ -1557,10 +1558,10 @@ static int DECODER_DEC( tDEC_FRAME_INPUT *pInput, tDEC_FRAME_OUTPUT *pOutput, tD
 	pOutput->stride = ((dec_private->pVideoDecodInstance.gsVDecOutput.m_DecOutInfo.m_iWidth+15)>>4)<<4;
 	pOutput->frameFormat = FRAME_BUF_FORMAT_YUV420P;
 	//add by yusufu for crop info
-	pOutput->crop_left = dec_private->pVideoDecodInstance.gsVDecOutput.m_pInitialInfo->m_iAvcPicCrop.m_iCropLeft;
-	pOutput->crop_top = dec_private->pVideoDecodInstance.gsVDecOutput.m_pInitialInfo->m_iAvcPicCrop.m_iCropTop;
-	pOutput->crop_right = dec_private->pVideoDecodInstance.gsVDecOutput.m_pInitialInfo->m_iAvcPicCrop.m_iCropRight;
-	pOutput->crop_bottom = dec_private->pVideoDecodInstance.gsVDecOutput.m_pInitialInfo->m_iAvcPicCrop.m_iCropBottom;
+	pOutput->crop_left = dec_private->pVideoDecodInstance.gsVDecOutput.m_pInitialInfo->m_iPicCrop.m_iCropLeft;
+	pOutput->crop_top = dec_private->pVideoDecodInstance.gsVDecOutput.m_pInitialInfo->m_iPicCrop.m_iCropTop;
+	pOutput->crop_right = dec_private->pVideoDecodInstance.gsVDecOutput.m_pInitialInfo->m_iPicCrop.m_iCropRight;
+	pOutput->crop_bottom = dec_private->pVideoDecodInstance.gsVDecOutput.m_pInitialInfo->m_iPicCrop.m_iCropBottom;
 
 	if(dec_private->pVideoDecodInstance.gsVDecInit.m_bCbCrInterleaveMode == 1)
 		pOutput->frameFormat = FRAME_BUF_FORMAT_YUV420I;
@@ -1723,14 +1724,14 @@ static int DECODER_DEC( tDEC_FRAME_INPUT *pInput, tDEC_FRAME_OUTPUT *pOutput, tD
 	
 	return 0;
 }
-
+#if 0
 static void save_decoded_frame(unsigned char* Y, unsigned char* U, unsigned char *V, int width, int height)
 {
 
 	FILE *pFs = NULL;
-	char name[100];
+	char name[128];
 
-	sprintf(name, "/mnt/SD1p1/DecDump.raw");
+	sprintf(name, "/run/media/mmcblk0p10/DecDump.raw");
 	if(!pFs){
 		pFs = fopen(name, "ab+");
 		if (!pFs) {
@@ -1745,13 +1746,13 @@ static void save_decoded_frame(unsigned char* Y, unsigned char* U, unsigned char
 	}
 	fclose(pFs);
 }
-
+#endif
 int h264decoder_init_vdec( int width, int height )
 {
 	int ret = 0;
 	tDEC_INIT_PARAMS pInit;
 
-	pInit.codecFormat = CODEC_FORMAT_H264;
+	pInit.codecFormat = CODEC_FORMAT_H264;  //set just for h264
 	pInit.container_type = CONTAINER_NONE;
 	pInit.picWidth = width;
 	pInit.picHeight = height;
@@ -1762,7 +1763,7 @@ int h264decoder_init_vdec( int width, int height )
 		DebugPrint( "h264decoder_init_vdec fail!!\n" );
 		return -1;
 	}
-	return 1;
+	return 0;
 	
 }
 
@@ -1774,8 +1775,6 @@ void h264decoder_close_vdec(void)
 int h264decoder_decode(unsigned int *pInputStream, unsigned int *pOutstream)
 {
 	int ret = 0;
-	int i = 0;
-	
 	tDEC_FRAME_INPUT Input;
 	tDEC_FRAME_OUTPUT Output;
 	tDEC_RESULT Result;
@@ -1801,9 +1800,9 @@ int h264decoder_decode(unsigned int *pInputStream, unsigned int *pOutstream)
 	else
 	{
 		pOutstream[0] = Output.frameFormat;
-		pOutstream[1] = Output.bufPhyAddr[0];
-		pOutstream[2] = Output.bufPhyAddr[1];
-		pOutstream[3] = Output.bufPhyAddr[2];
+		pOutstream[1] = Output.bufPhyAddr[0];   //Physical Y
+		pOutstream[2] = Output.bufPhyAddr[1];   //Physical U
+		pOutstream[3] = Output.bufPhyAddr[2];   //Physical V
 		pOutstream[4] = Output.bufVirtAddr[0];
 		pOutstream[5] = Output.bufVirtAddr[1];
 		pOutstream[6] = Output.bufVirtAddr[2];
@@ -1815,13 +1814,17 @@ int h264decoder_decode(unsigned int *pInputStream, unsigned int *pOutstream)
 		pOutstream[12] = Output.crop_top;
 		pOutstream[13] = Output.crop_right;
 		pOutstream[14] = Output.crop_bottom;
-		printf( "pOutstream[13]=0x%08x, pOutstream[14]=0x%08x.\n",pOutstream[13],pOutstream[14]);
+		
+		//DebugPrint( "[libH264] pOutstream[1]=0x%08x, pOutstream[2]=0x%08x, pOutstream[3]=0x%08x",
+		//				pOutstream[1], pOutstream[2], pOutstream[3] );
+		//DebugPrint( "[libH264] pOutstream[4]=0x%08x, pOutstream[5]=0x%08x, pOutstream[6]=0x%08x",
+		//				pOutstream[4], pOutstream[5], pOutstream[6] );
+		//DebugPrint( "[libH264] pOutstream[13]=0x%08x, pOutstream[14]=0x%08x.",
+		//				pOutstream[13],pOutstream[14]);
+		
 		// Debug
-	//	save_decoded_frame( pOutstream[4], pOutstream[5], pOutstream[6], pOutstream[8], pOutstream[9] );
+		//	save_decoded_frame( pOutstream[4], pOutstream[5], pOutstream[6], pOutstream[8], pOutstream[9] );
 	}
 
-	// printf( "%s: pOutstream[1]=0x%08x, pOutstream[2]=0x%08x, pOutstream[3]=0x%08x\n", __func__,
-	// 												pOutstream[1], pOutstream[2], pOutstream[3] );	// yuichi
-	
 	return ret;
 }

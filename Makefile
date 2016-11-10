@@ -1,7 +1,7 @@
 PATH_ARM_NONE_LINUX_GNUEABI := /opt/arm-2013.11
 COMPILER = $(PATH_ARM_NONE_LINUX_GNUEABI)/bin/arm-none-linux-gnueabi-gcc
 STRIP = $(PATH_ARM_NONE_LINUX_GNUEABI)/bin/arm-none-linux-gnueabi-strip
-CFLAGS   = -Wextra -g -MMD -MP -mcpu=cortex-a7 -DHAVE_ANDROID_OS
+CFLAGS   = -Wall -g -MMD -MP -mcpu=cortex-a7 -DHAVE_ANDROID_OS
 LDFLAGS  =
 LIBS     =
 INCLUDE +=  -I$(PATH_ARM_NONE_LINUX_GNUEABI)/arm-none-linux-gnueabi/libc/usr/include
