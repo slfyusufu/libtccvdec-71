@@ -1,8 +1,20 @@
+//********************************************************************************************
+/**
+ * @file        tcc_vpudec_intf.h
+ * @brief		Decode one video frame using TCC VPU, now, we just set it to H264 decode. 
+ * 				This interface contain : Init VPU, Decode frame and Close VPU.
+ *
+ * @author      Yusuf.Sha, Telechips Shenzhen Rep.
+ * @date        2016/11/08
+ */
+//********************************************************************************************
 #ifndef	__TCC_VPUDEC_INTF_H__
 #define	__TCC_VPUDEC_INTF_H__
 
 #include <stdlib.h>
-
+#include <stdio.h>
+#include <string.h>
+#include <vdec_v2.h>
 
 /***********************************************************/
 //COMMON PARAMETERS
@@ -27,7 +39,6 @@ typedef enum pic_type {
 	TYPE_ILLEGAL	
 } tPIC_TYPE;
 #endif
-
 
 /***********************************************************/
 //DECODER PARAMETERS
@@ -63,7 +74,6 @@ typedef struct dec_frame_input {
 	int				nTimeStamp;			/* TimeStamp of input bitstream, by ms */
 } tDEC_FRAME_INPUT;
 
-
 typedef struct dec_frame_output {
 	tFRAME_BUF_FORMAT	frameFormat;
 	unsigned int		bufPhyAddr[3];		/* (Y,U,V or Y, UV). Base address of output frame (physical address) */
@@ -84,8 +94,103 @@ typedef struct dec_result {
 	int 	no_frame_output;	/* can't display because decoder fail or more frame need. */
 } tDEC_RESULT;
 
-int h264decoder_init_vdec( int width, int height );
-void h264decoder_close_vdec(void);
-int h264decoder_decode(unsigned int *pInputStream, unsigned int *pOutstream);
+/***********************************************************/
+//INSTANCE Stuct
+#define TS_TIMESTAMP_CORRECTION
+#define RESTORE_DECODE_ERR
+#define CHECK_SEQHEADER_WITH_SYNCFRAME
+/** The output decoded color format */
+#define EXT_V_DECODER_TR_TEST
+
+
+#ifdef TS_TIMESTAMP_CORRECTION
+typedef struct ts_pts_ctrl{
+	int m_iLatestPTS;
+	int m_iPTSInterval;
+	int m_iRamainingDuration;
+} ts_pts_ctrl;
+ts_pts_ctrl gsTSPtsInfo;
+#endif
+
+typedef struct _VIDEO_DECOD_INSTANCE_ {
+	int avcodecReady;
+	unsigned int video_coding_type;
+	unsigned char	container_type;
+	unsigned int  bitrate_mbps;
+	vdec_input_t gsVDecInput;
+	vdec_output_t gsVDecOutput;
+	vdec_init_t gsVDecInit;
+	vdec_user_info_t gsVDecUserInfo;
+#ifdef TIMESTAMP_CORRECTION
+	pts_ctrl gsPtsInfo;
+#endif
+	int  isVPUClosed;
+	unsigned int video_dec_idx;
+//	cdmx_info_t cdmx_info;	
+	dec_disp_info_ctrl_t dec_disp_info_ctrl;
+	dec_disp_info_t dec_disp_info[32];
+	dec_disp_info_input_t dec_disp_info_input;
+	void* pVdec_Instance;
+	ts_pts_ctrl gsTSPtsInfo;
+	cdk_func_t *gspfVDec;
+	unsigned int 	restred_count;
+#ifdef EXT_V_DECODER_TR_TEST
+	int gsextTRDelta;
+	int gsextP_frame_cnt;
+	int gsextReference_Flag;
+	EXT_F_frame_time_t gsEXT_F_frame_time;
+#endif
+} _VIDEO_DECOD_INSTANCE_;
+
+/***********************************************************/
+//INTERNAL VARIABLE
+typedef struct dec_private_data {
+//dec operation
+//	vdec_init_t 		gsVDecInit;
+//	vdec_input_t 		gsVDecInput;
+//	vdec_output_t 		gsVDecOutput;
+//	vdec_user_info_t 	gsVDecUserInfo;
+	unsigned char 		isSequenceHeaderDone;
+//	unsigned char 		isVPUClosed;
+
+//info
+//	unsigned char		container_type;
+//	unsigned int 		video_coding_type;
+	unsigned int 		frameSearchOrSkip_flag;
+	unsigned char 		isFirst_Frame;
+	unsigned char  		i_skip_scheme_level;
+	signed char  		i_skip_count;
+	signed char  		i_skip_interval;
+	unsigned char 		bUseFrameDefragmentation;
+	unsigned char		nFps;
+
+	_VIDEO_DECOD_INSTANCE_ pVideoDecodInstance;
+	mpeg2_pts_ctrl gsMPEG2PtsInfo;
+	unsigned int out_index;
+	unsigned int in_index;
+	unsigned int frm_clear;
+	unsigned int Display_index[VPU_BUFF_COUNT];
+	unsigned int max_fifo_cnt;
+//error process
+	signed int 		seq_header_init_error_count;
+	unsigned int 		ConsecutiveVdecFailCnt;
+	signed int			ConsecutiveBufferFullCnt;
+
+#ifdef RESTORE_DECODE_ERR
+	unsigned char* 		seqHeader_backup;
+	unsigned int 		seqHeader_len;
+	unsigned int 		cntDecError;
+#endif
+
+#ifdef CHECK_SEQHEADER_WITH_SYNCFRAME
+	unsigned char*		sequence_header_only;
+	long 		sequence_header_size;
+	unsigned char 		need_sequence_header_attachment;
+#endif
+}tDEC_PRIVATE;
+
+int  tcc_vpudec_init( int width, int height );
+int  tcc_vpudec_decode(unsigned int *pInputStream, unsigned int *pOutstream);
+void tcc_vpudec_close(void);
 
 #endif	// __TCC_VPUDEC_INTF_H__

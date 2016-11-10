@@ -1,12 +1,11 @@
 //********************************************************************************************
 /**
- * @file		libH264Decoder.c
- * @brief		要約説明
+ * @file        tcc_vdec_api.h
+ * @brief		Decode H264 frame and display image onto screen through overlay driver. 
+ * 				This interface contain : 
  *
- *	このファイルの詳細説明
- *
- * @author		N.Tanaka
- * @date		2014/10/14(火) 16:22:10
+ * @author      Yusuf.Sha, Telechips Shenzhen Rep.
+ * @date        2016/11/08
  */
 //********************************************************************************************
 
@@ -20,38 +19,31 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
-//#define CONFIG_TCC_INVITE 1
-#define CONFIG_ARCH_TCC897X 1
+
 #include <tcc_overlay_ioctl.h>
 #include <mach/vioc_global.h>
 
 #include "tcc_vpudec_intf.h"
+
+#define	DEBUG_MODE
+#ifdef	DEBUG_MODE
+	#define	DebugPrint( fmt, ... )	printf( "[libH264Decoder](D):"fmt, ##__VA_ARGS__ )
+	#define	ErrorPrint( fmt, ... )	printf( "[libH264Decoder](E):"fmt, ##__VA_ARGS__ )
+#else
+	#define	DebugPrint( fmt, ... )
+	#define	ErrorPrint( fmt, ... )	printf( "[libH264Decoder](E):"fmt, ##__VA_ARGS__ )
+#endif
+
 // Overlay Driver
 #define	OVERLAY_DRIVER	"/dev/overlay"
 static int g_OverlayDrv = -1;
 
 //add for ovp setting
 static unsigned int default_ovp;
-//#define TCC_LCDC_SET_WMIXER_OVP         0x0045
-//#define FB_DEV "/dev/fb0"
 
 // Decoder State
 static int g_DecoderState = -1;
 
-// >> For Debug
-#define	DEBUG_MODE
-#ifdef	DEBUG_MODE
-
-	#define	DebugPrint( fmt, ... )	printf( "[libH264Decoder](D):"fmt, ##__VA_ARGS__ )
-	#define	ErrorPrint( fmt, ... )	printf( "[libH264Decoder](E):"fmt, ##__VA_ARGS__ )
-
-#else
-
-	#define	DebugPrint( fmt, ... )
-	#define	ErrorPrint( fmt, ... )	printf( "[libH264Decoder](E):"fmt, ##__VA_ARGS__ )
-
-#endif
-// << For Debug
 
 // 描画可否フラグ
 static int g_IsViewValid = 0;	// 0:不可, 1:可
@@ -134,17 +126,17 @@ int tcc_vdec_open(void)
 	// AndroidAutoでCloseされないので、Openされている時には一度閉じてあげる
 	if( g_DecoderState >= 0 ){
 		ErrorPrint( "decoder is not closed... so stop decoder!!\n" );
-		h264decoder_close_vdec();
+		tcc_vpudec_close();
 		g_DecoderState = -1;
 	}
 	
 	// Decoder準備 : 成功すると0, 失敗で-1が返ってくる
 	if( g_DecoderState == -1 ){
 		#if 0
-		g_DecoderState = h264decoder_init_vdec(800, 480);
+		g_DecoderState = tcc_vpudec_init(800, 480);
 		#else
 		// 2015.3.2 yuichi mod
-		g_DecoderState = h264decoder_init_vdec(800, 476);
+		g_DecoderState = tcc_vpudec_init(800, 476);
 		#endif
 	}
 	
@@ -204,7 +196,7 @@ int tcc_vdec_close(void)
 	g_IsSetConfigure = 0;	// 2015.04.23 : N.Tanaka
 	
 	if( g_DecoderState >= 0 ){
-		h264decoder_close_vdec();
+		tcc_vpudec_close();
 	}
 	g_DecoderState = -1;
 	
@@ -232,7 +224,7 @@ int tcc_vdec_process_annexb_header( unsigned char* data, int datalen)
 		return -1;
 	}
 	
-	iret = h264decoder_decode(inputdata, outputdata);
+	iret = tcc_vpudec_decode(inputdata, outputdata);
 	if(iret < 0)
 	{
 		ErrorPrint("Annexb Header Decode Error!\n");
@@ -279,7 +271,7 @@ int tcc_vdec_process( unsigned char* data, int size)
 	}
 	
 	//iret = decoder_decode( data, size, outputdata );
-	iret = h264decoder_decode(inputdata, outputdata);
+	iret = tcc_vpudec_decode(inputdata, outputdata);
 	
 	if( iret >= 0 ){
 		
@@ -353,9 +345,9 @@ int tcc_vdec_process( unsigned char* data, int size)
 				info.cfg.sy = 0;
 				info.cfg.crop_src.height = screen_height;
 			}
-			//DebugPrint("Pos [%d,%d], (%d,%d) -> (%d x %d)... \n", info.cfg.sx, info.cfg.sy, \
-													info.cfg.width, info.cfg.height, \
-													info.cfg.crop_src.width, info.cfg.crop_src.height);
+			//DebugPrint("Pos [%d,%d], (%d,%d) -> (%d x %d)... \n", info.cfg.sx, info.cfg.sy, 
+			//										info.cfg.width, info.cfg.height, 
+			//										info.cfg.crop_src.width, info.cfg.crop_src.height);
 #endif
 #if defined(CONFIG_OVERLAY_SCALE)			
 			///for scaler

@@ -1,181 +1,25 @@
 //********************************************************************************************
 /**
- * @file        tcc_vdec_api.h
- * @brief
+ * @file        tcc_vpudec_intf.h
+ * @brief		Decode one video frame using TCC VPU, now, we just set it to H264 decode. 
+ * 				This interface contain : Init VPU, Decode frame and Close VPU.
  *
- * @author      ZhangGeQing, Telechips Shenzhen Rep.
- * @date        2016/07/09
+ * @author      Yusuf.Sha, Telechips Shenzhen Rep.
+ * @date        2016/11/08
  */
 //********************************************************************************************
-#include <stdio.h>
-#include <string.h>
 
-#include "vdec_v2.h"
 #include "tcc_vpudec_intf.h"
 
 
 //#define	DEBUG_MODE
 #ifdef	DEBUG_MODE
-	#define	DebugPrint( fmt, ... ) printf( "[H264Decoder] :"fmt"\n", ##__VA_ARGS__ )
+	#define	DebugPrint( fmt, ... ) printf( "[TCC_VPUDEC_INTF] :"fmt"\n", ##__VA_ARGS__ )
 #else
 	#define	DebugPrint( fmt, ... )
 #endif
 
-#define TS_TIMESTAMP_CORRECTION
-#define RESTORE_DECODE_ERR
-#define CHECK_SEQHEADER_WITH_SYNCFRAME
-
-/** The output decoded color format */
-#if 0
-#define EXT_V_DECODER_TR_TEST
-#ifdef EXT_V_DECODER_TR_TEST
-
-typedef struct EXT_F_frame_t{
-	int Current_TR;
-	int Previous_TR;
-	int Current_time_stamp;
-	int Previous_time_stamp;
-} EXT_F_frame_t;
-
-typedef struct EXT_F_frame_time_t {
-	EXT_F_frame_t  ref_frame;		
-	EXT_F_frame_t  frame_P1;
-	EXT_F_frame_t  frame_P2;
-} EXT_F_frame_time_t;
-
-#endif
-
-
-typedef struct dec_disp_info_ctrl_t {
-	int		m_iTimeStampType;	//! TS(Timestamp) type (0: Presentation TS(default), 1:Decode TS)
-	int		m_iStdType;			//! STD type
-	int		m_iFmtType;			//! Formater Type
-
-	int		m_iUsedIdxPTS;		//! total number of decoded index for PTS
-	int		m_iRegIdxPTS[32];	//! decoded index for PTS
-	void	*m_pRegInfoPTS[32];	//! side information of the decoded index for PTS
-
-	int		m_iDecodeIdxDTS;	//! stored DTS index of decoded frame
-	int		m_iDispIdxDTS;		//! display DTS index of DTS array
-	int		m_iDTS[32];			//! Decode Timestamp (decoding order)
-	
-	int		m_Reserved;
-} dec_disp_info_ctrl_t;
-
-typedef struct dec_disp_info_t {
-	int m_iFrameType;			//! Frame Type
-
-	int m_iTimeStamp;			//! Time Stamp
-	int m_iextTimeStamp;			//! TR(RV)
-
-	int m_iPicStructure;		//! PictureStructure
-	int m_iM2vFieldSequence;	//! Field sequence(MPEG2) 
-	int m_iFrameDuration;		//! MPEG2 Frame Duration
-	
-	int m_iFrameSize;			//! Frame size
-} dec_disp_info_t;
-
-typedef struct dec_disp_info_input_t {
-	int m_iFrameIdx;			//! Display frame buffer index for CVDEC_DISP_INFO_UPDATE command
-								//! Decoded frame buffer index for CVDEC_DISP_INFO_GET command
-	int m_iStdType;				//! STD type for CVDEC_DISP_INFO_INIT
-	int m_iTimeStampType;		//! TS(Timestamp) type (0: Presentation TS(default), 1:Decode TS) for CVDEC_DISP_INFO_INIT
-	int m_iFmtType;				//! Formater Type specification
-	int m_iFrameRate;
-} dec_disp_info_input_t;
-
-typedef struct mpeg2_pts_ctrl{
-	int m_iLatestPTS;
-	int m_iPTSInterval;
-	int m_iRamainingDuration;
-} mpeg2_pts_ctrl;
-#endif
-#ifdef TS_TIMESTAMP_CORRECTION
-typedef struct ts_pts_ctrl{
-	int m_iLatestPTS;
-	int m_iPTSInterval;
-	int m_iRamainingDuration;
-} ts_pts_ctrl;
-ts_pts_ctrl gsTSPtsInfo;
-#endif
-
-typedef struct _VIDEO_DECOD_INSTANCE_ {
-	int avcodecReady;
-	unsigned int video_coding_type;
-	unsigned char	container_type;
-	unsigned int  bitrate_mbps;
-	vdec_input_t gsVDecInput;
-	vdec_output_t gsVDecOutput;
-	vdec_init_t gsVDecInit;
-	vdec_user_info_t gsVDecUserInfo;
-#ifdef TIMESTAMP_CORRECTION
-	pts_ctrl gsPtsInfo;
-#endif
-	int  isVPUClosed;
-	unsigned int video_dec_idx;
-//	cdmx_info_t cdmx_info;	
-	dec_disp_info_ctrl_t dec_disp_info_ctrl;
-	dec_disp_info_t dec_disp_info[32];
-	dec_disp_info_input_t dec_disp_info_input;
-	void* pVdec_Instance;
-	ts_pts_ctrl gsTSPtsInfo;
-	cdk_func_t *gspfVDec;
-	unsigned int 	restred_count;
-#ifdef EXT_V_DECODER_TR_TEST
-	int gsextTRDelta;
-	int gsextP_frame_cnt;
-	int gsextReference_Flag;
-	EXT_F_frame_time_t gsEXT_F_frame_time;
-#endif
-} _VIDEO_DECOD_INSTANCE_;
-
-/***********************************************************/
-//INTERNAL VARIABLE
-typedef struct dec_private_data {
-//dec operation
-//	vdec_init_t 		gsVDecInit;
-//	vdec_input_t 		gsVDecInput;
-//	vdec_output_t 		gsVDecOutput;
-//	vdec_user_info_t 	gsVDecUserInfo;
-	unsigned char 		isSequenceHeaderDone;
-//	unsigned char 		isVPUClosed;
-
-//info
-//	unsigned char		container_type;
-	unsigned int 		frameSearchOrSkip_flag;
-//	unsigned int 		video_coding_type;
-	unsigned char 		isFirst_Frame;
-	unsigned char  		i_skip_scheme_level;
-	signed char  		i_skip_count;
-	signed char  		i_skip_interval;
-	unsigned char 		bUseFrameDefragmentation;
-	unsigned char		nFps;
-
-	_VIDEO_DECOD_INSTANCE_ pVideoDecodInstance;
-	mpeg2_pts_ctrl gsMPEG2PtsInfo;
-	unsigned int out_index;
-	unsigned int in_index;
-	unsigned int frm_clear;
-	unsigned int Display_index[VPU_BUFF_COUNT];
-	unsigned int max_fifo_cnt;
-//error process
-	signed int 		seq_header_init_error_count;
-	unsigned int 		ConsecutiveVdecFailCnt;
-	signed int			ConsecutiveBufferFullCnt;
-
-#ifdef RESTORE_DECODE_ERR
-	unsigned char* 		seqHeader_backup;
-	unsigned int 		seqHeader_len;
-	unsigned int 		cntDecError;
-#endif
-
-#ifdef CHECK_SEQHEADER_WITH_SYNCFRAME
-	unsigned char*		sequence_header_only;
-	long 		sequence_header_size;
-	unsigned char 		need_sequence_header_attachment;
-#endif
-}tDEC_PRIVATE;
-
+///////////   Global Define    //////////////////////
 static tDEC_PRIVATE *dec_private;
 
 static void
@@ -570,7 +414,8 @@ static void VideoDecErrorProcess(int ret)
 }
 
 #ifdef CHECK_SEQHEADER_WITH_SYNCFRAME
-static int extract_h264_seqheader(
+static int 
+extract_h264_seqheader(
 		const unsigned char	*pbyStreamData, 
 		long				lStreamDataSize,
 		unsigned char		**ppbySeqHeaderData,
@@ -770,11 +615,12 @@ static int extract_h264_seqheader(
 #endif
 
 
-static int extract_mpeg4_seqheader(
+static int 
+extract_mpeg4_seqheader(
 	 const unsigned char	*pbyData, 
-	 long				lDataSize,
-	 unsigned char		**ppbySeqHead,
-	 long				*plHeadLength
+	 long					lDataSize,
+	 unsigned char			**ppbySeqHead,
+	 long					*plHeadLength
 	 )
 {
 	unsigned long syncword = 0xFFFFFFFF;
@@ -844,7 +690,11 @@ static int extract_mpeg4_seqheader(
 }
 
 char*
-print_pic_type( int iVideoType, int iPicType, int iPictureStructure )
+print_pic_type(
+				int iVideoType, 
+				int iPicType, 
+				int iPictureStructure
+				)
 {
 	switch ( iVideoType )
 	{
@@ -931,7 +781,8 @@ print_pic_type( int iVideoType, int iPicType, int iPictureStructure )
 	}
 }
 
-static int DECODER_INIT_NoReordering(tDEC_INIT_PARAMS *pInit)
+static int
+DECODER_INIT_NoReordering(tDEC_INIT_PARAMS *pInit)
 {
 	int ret = 0;
 	
@@ -939,8 +790,8 @@ static int DECODER_INIT_NoReordering(tDEC_INIT_PARAMS *pInit)
 	
 	dec_private = (tDEC_PRIVATE*)calloc( 1, sizeof(tDEC_PRIVATE) );
 	if( dec_private == NULL ){
-		DebugPrint( "calloc fail\n" );
-		return 1;
+		DebugPrint( "%s calloc fail!\n", __func__);
+		return -1;
 	}
 	
 	memset(dec_private, 0x00, sizeof(tDEC_PRIVATE));
@@ -989,9 +840,7 @@ static int DECODER_INIT_NoReordering(tDEC_INIT_PARAMS *pInit)
 	dec_private->pVideoDecodInstance.gsVDecInit.m_bFilePlayEnable		= 1;
 	dec_private->pVideoDecodInstance.container_type 					= pInit->container_type;
 	// <<<<<<<<<<<<<<<<<<<<
-	
 	dec_private->pVideoDecodInstance.gsVDecInit.m_bCbCrInterleaveMode	= 1;
-	
 	dec_private->pVideoDecodInstance.gspfVDec = vdec_vpu;
 	// <<<<<<<<<<<<<<<<<<<<
 	
@@ -1015,9 +864,9 @@ static int DECODER_INIT_NoReordering(tDEC_INIT_PARAMS *pInit)
 	
 	dec_private->pVideoDecodInstance.gsVDecUserInfo.bitrate_mbps = 10;
 	dec_private->pVideoDecodInstance.gsVDecUserInfo.frame_rate = 30;
-	//dec_private->pVideoDecodInstance.gsVDecUserInfo.m_bJpegOnly = 0;
-	
+//	dec_private->pVideoDecodInstance.gsVDecUserInfo.m_bJpegOnly = 0;
 //	dec_private->pVideoDecodInstance.gsVDecInit.m_bWFDPlayEnable = 1;
+	dec_private->pVideoDecodInstance.gsVDecUserInfo.extFunction = EXT_FUNC_NO_BUFFER_DELAY;
 
 /*
 	if( (pInst->extFunction & EXT_FUNC_NO_BUFFER_DELAY) != 0x0 )
@@ -1026,25 +875,22 @@ static int DECODER_INIT_NoReordering(tDEC_INIT_PARAMS *pInit)
 		pInst->gsVpuDecInit_Info.gsVpuDecInit.m_uiDecOptFlags |= (1<<2);
 	}
 */
-	
-	dec_private->pVideoDecodInstance.gsVDecUserInfo.extFunction = EXT_FUNC_NO_BUFFER_DELAY;
-	
 	if( (ret = dec_private->pVideoDecodInstance.gspfVDec( VDEC_INIT, NULL, &dec_private->pVideoDecodInstance.gsVDecInit, &dec_private->pVideoDecodInstance.gsVDecUserInfo, dec_private->pVideoDecodInstance.pVdec_Instance )) < 0 )	
 	{
 		DebugPrint( "[VDEC_INIT] [Err:%d] video decoder init", ret );
 
 		if(ret != -VPU_ENV_INIT_ERROR) //to close vpu!!
 			dec_private->pVideoDecodInstance.isVPUClosed = 0;			
-		return ret;
+		return -1;
 	}
 	dec_private->pVideoDecodInstance.isVPUClosed = 0;
 	dec_private->pVideoDecodInstance.restred_count = 0;
 	
 	return 0;
-	
 }
 
-static void DECODER_CLOSE(void)
+static void
+DECODER_CLOSE(void)
 {
 	int ret;
 	
@@ -1076,7 +922,12 @@ static void DECODER_CLOSE(void)
 	}
 }
 
-static int DECODER_DEC( tDEC_FRAME_INPUT *pInput, tDEC_FRAME_OUTPUT *pOutput, tDEC_RESULT *pResult )
+static int
+DECODER_DEC(
+			tDEC_FRAME_INPUT 	*pInput,
+			tDEC_FRAME_OUTPUT 	*pOutput,
+			tDEC_RESULT 		*pResult
+			)
 {
 	int ret = 0;
 	int nLen = 0;
@@ -1478,24 +1329,24 @@ static int DECODER_DEC( tDEC_FRAME_INPUT *pInput, tDEC_FRAME_OUTPUT *pOutput, tD
 		//current decoded frame info
 		
 		
-		/*
+		#if 0
 		DebugPrint( "[In - %s][N:%4d][LEN:%6d][RT:%8d] [DecoIdx:%2d][DecStat:%d][FieldSeq:%d][TR:%8d] ", 
 						print_pic_type(dec_private->pVideoDecodInstance.gsVDecInit.m_iBitstreamFormat, dec_disp_info_tmp.m_iFrameType, dec_disp_info_tmp.m_iPicStructure),
 						dec_private->pVideoDecodInstance.video_dec_idx, pInput->inputStreamSize, (int)(pInput->nTimeStamp),
 						dec_private->pVideoDecodInstance.gsVDecOutput.m_DecOutInfo.m_iDecodedIdx, dec_private->pVideoDecodInstance.gsVDecOutput.m_DecOutInfo.m_iDecodingStatus,
 						dec_private->pVideoDecodInstance.gsVDecOutput.m_DecOutInfo.m_iM2vFieldSequence, dec_private->pVideoDecodInstance.gsVDecOutput.m_DecOutInfo.m_iextTimeStamp);
-		*/
+		#endif
 	}
 	else
 	{
 		
-		/*
+		#if 0
 		DebugPrint( "[Err In - %s][N:%4d][LEN:%6d][RT:%8d] [DecoIdx:%2d][DecStat:%d][FieldSeq:%d][TR:%8d] ", 
 						print_pic_type(dec_private->pVideoDecodInstance.>gsVDecInit.m_iBitstreamFormat, dec_disp_info_tmp.m_iFrameType, dec_disp_info_tmp.m_iPicStructure),
 						dec_private->pVideoDecodInstance.video_dec_idx, pInput->inputStreamSize, (int)(pInput->nTimeStamp),
 						dec_private->pVideoDecodInstance.gsVDecOutput.m_DecOutInfo.m_iDecodedIdx, dec_private->pVideoDecodInstance.gsVDecOutput.m_DecOutInfo.m_iDecodingStatus,
 						dec_private->pVideoDecodInstance.gsVDecOutput.m_DecOutInfo.m_iM2vFieldSequence, dec_private->pVideoDecodInstance.gsVDecOutput.m_DecOutInfo.m_iextTimeStamp);
-		*/
+		#endif
 	}
 
 //In case that only one field picture is decoded...
@@ -1747,7 +1598,7 @@ static void save_decoded_frame(unsigned char* Y, unsigned char* U, unsigned char
 	fclose(pFs);
 }
 #endif
-int h264decoder_init_vdec( int width, int height )
+int tcc_vpudec_init( int width, int height )
 {
 	int ret = 0;
 	tDEC_INIT_PARAMS pInit;
@@ -1760,19 +1611,18 @@ int h264decoder_init_vdec( int width, int height )
 	
 	if(ret < 0)
 	{
-		DebugPrint( "h264decoder_init_vdec fail!!\n" );
+		DebugPrint( "vpudec_init fail!!\n" );
 		return -1;
 	}
 	return 0;
-	
 }
 
-void h264decoder_close_vdec(void)
+void tcc_vpudec_close(void)
 {
 	DECODER_CLOSE();
 }
 
-int h264decoder_decode(unsigned int *pInputStream, unsigned int *pOutstream)
+int tcc_vpudec_decode(unsigned int *pInputStream, unsigned int *pOutstream)
 {
 	int ret = 0;
 	tDEC_FRAME_INPUT Input;

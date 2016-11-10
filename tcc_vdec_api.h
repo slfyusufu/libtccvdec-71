@@ -1,17 +1,16 @@
 //********************************************************************************************
 /**
- * @file		libH264Decoder.c.h
- * @brief		要約説明
+ * @file        tcc_vdec_api.h
+ * @brief		Decode H264 frame and display image onto screen through overlay driver. 
+ * 				This interface contain : 
  *
- *	このファイルの詳細説明
- *
- * @author		N.Tanaka
- * @date		2014/11/04(火) 16:05:27
+ * @author      Yusuf.Sha, Telechips Shenzhen Rep.
+ * @date        2016/11/08
  */
 //********************************************************************************************
 
-#ifndef	__LIBH264DECODER_H__
-#define	__LIBH264DECODER_H__
+#ifndef	__TCC_VDEC_API_H__
+#define	__TCC_VDEC_API_H__
 
 #include <stdint.h>	// for uint64_t
 
@@ -23,11 +22,11 @@ int tcc_vdec_open(void);
 int tcc_vdec_close(void);
 int tcc_vdec_process_annexb_header( unsigned char* data, int datalen);
 int tcc_vdec_process( unsigned char* data, int size);
-int libH264Decoder_SetViewValidFlag(int isValid);
+//int libH264Decoder_SetViewValidFlag(int isValid);
 int tcc_vdec_init(int x, int y, int w, int h);
 
 #ifdef	__cplusplus
 }
 #endif
 
-#endif	// __LIBH264DECODER_H__
+#endif	// __TCC_VDEC_API_H__
