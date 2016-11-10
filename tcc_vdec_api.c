@@ -9,200 +9,186 @@
  */
 //********************************************************************************************
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <unistd.h>
-#include <string.h>
-#include <pthread.h>
-#include <fcntl.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/ioctl.h>
-
-#include <tcc_overlay_ioctl.h>
-#include <mach/vioc_global.h>
-
-#include "tcc_vpudec_intf.h"
+#include "tcc_vdec_api.h"
 
 #define	DEBUG_MODE
 #ifdef	DEBUG_MODE
-	#define	DebugPrint( fmt, ... )	printf( "[libH264Decoder](D):"fmt, ##__VA_ARGS__ )
-	#define	ErrorPrint( fmt, ... )	printf( "[libH264Decoder](E):"fmt, ##__VA_ARGS__ )
+	#define	DebugPrint( fmt, ... )	printf( "[TCC_VDEC_API](D):"fmt, ##__VA_ARGS__ )
+	#define	ErrorPrint( fmt, ... )	printf( "[TCC_VDEC_API](E):"fmt, ##__VA_ARGS__ )
 #else
 	#define	DebugPrint( fmt, ... )
-	#define	ErrorPrint( fmt, ... )	printf( "[libH264Decoder](E):"fmt, ##__VA_ARGS__ )
+	#define	ErrorPrint( fmt, ... )	printf( "[TCC_VDEC_API](E):"fmt, ##__VA_ARGS__ )
 #endif
 
 // Overlay Driver
 #define	OVERLAY_DRIVER	"/dev/overlay"
-static int g_OverlayDrv = -1;
+#define DEC_VIDEO_FORMAT VIOC_IMG_FMT_YUV420IL0
+
+//static int g_OverlayDrv = -1;
+// Decoder State
+//static int g_DecoderState = -1;
 
 //add for ovp setting
-static unsigned int default_ovp;
+//static unsigned int default_ovp;
 
-// Decoder State
-static int g_DecoderState = -1;
-
-
-// 描画可否フラグ
-static int g_IsViewValid = 0;	// 0:不可, 1:可
-
-// SetConfigureを行ったかどうか
-static int g_IsSetConfigure = 0;	// 0:未設定, 1:設定済
-//static unsigned int ignore = 1;
-// 一番最後にDecodeした画像情報
-static overlay_video_buffer_t g_lastinfo;
+//static int g_IsViewValid = 0;
+//static int g_IsSetConfigure = 0;	
+//static overlay_video_buffer_t g_lastinfo;
 
 // Mutex
-static pthread_mutex_t g_Mutex = PTHREAD_MUTEX_INITIALIZER;
+//static pthread_mutex_t g_Mutex = PTHREAD_MUTEX_INITIALIZER;
+
+
+typedef struct _DecodeDate {
+	
+	int 					OverlayDrv;		//overlay driver handler
+	bool					IsViewValid;	//view valid ?
+	bool					IsDecoderOpen;	//whether decode is in use ?
+	bool					IsConfigured;	//whether be configured ?
+	unsigned int			default_ovp;	//set overlay layer
+	overlay_video_buffer_t	lastinfo;		//backup last_overlay_info
+	
+	pthread_mutex_t mutex_lock;
+} DecodeDate;
+
+static DecodeDate decode_data;
 
 static void SetConfigure(void)
 {
 	overlay_config_t cfg;
-	unsigned int format = (unsigned int)'N' | (unsigned int)'V'<<8 | (unsigned int)'1'<<16 | (unsigned int)'2'<<24;
+	//unsigned int format = DEC_VIDEO_FORMAT;
 	cfg.sx = 0;
 	cfg.sy = 0;
 	cfg.width = 800;
 	cfg.height = 480;
-	cfg.format = format;
+	cfg.format = DEC_VIDEO_FORMAT;
 	cfg.transform = 0;
-	ioctl( g_OverlayDrv, OVERLAY_SET_CONFIGURE, &cfg );
-	g_IsSetConfigure = 1;
+	ioctl( decode_data.OverlayDrv, OVERLAY_SET_CONFIGURE, &cfg );
+	decode_data.IsConfigured = 1;
 	
 }
-
-// 2015.04.23 N.Tanaka
-// 描画可否のフラグを追加/設定する
+#if 0
 int tcc_SetViewValidFlag(int isValid)
 {
-	pthread_mutex_lock(&g_Mutex);
+	pthread_mutex_lock(&(decode_data.mutex_lock));
 	
 	g_IsViewValid = isValid;
 	
-	// 無効から有効に状態が変わった際に、最後のデータを描画する
 	if( isValid == 1 ){
-		
-		// Overlay Driverが開かれている時
-		if( g_OverlayDrv >= 0 ){
-			
-			// SetConfigureを呼んでいない場合には呼ぶ
+		if( decode_data.OverlayDrv >= 0 ){
 			if( g_IsSetConfigure == 0 ){
-				
 				SetConfigure();
 			}
-			
-			// 最後のデコードデータが存在していればそれをDriverに渡す
-			if( g_lastinfo.addr != 0 ){	// Addressが0かどうかでデータが存在しているのかを判断する
-				ioctl( g_OverlayDrv, OVERLAY_PUSH_VIDEO_BUFFER, &g_lastinfo );
+			if( g_lastinfo.addr != 0 ){	
+				ioctl( decode_data.OverlayDrv, OVERLAY_PUSH_VIDEO_BUFFER, &g_lastinfo );
 			}
 		}
 	}
 	
-	pthread_mutex_unlock(&g_Mutex);
+	pthread_mutex_unlock(&(decode_data.mutex_lock));
+	
+	return 0;
+}
+#endif
+int tcc_vdec_init(int sx, int sy, int width, int height)
+{
+	//int visible=1;
+	//tcc_SetViewValidFlag(visible);
+	
+	//Init decode_data value
+	decode_data.OverlayDrv = -1;
+	decode_data.IsViewValid = 1;
+	decode_data.IsDecoderOpen = 0;
+	decode_data.IsConfigured = 0;
+	decode_data.default_ovp = 24;
+	
+	pthread_mutex_init(&(decode_data.mutex_lock),NULL);
 	
 	return 0;
 }
 
-void tcc_vdec_init(int sx, int sy, int width, int height)
-{
-	int visible=1;
-	tcc_SetViewValidFlag(visible);
-
-}
 int tcc_vdec_open(void)
 {
-	overlay_config_t cfg;
-	unsigned int format = VIOC_IMG_FMT_YUV420IL0;//(unsigned int)'N' | (unsigned int)'V'<<8 | (unsigned int)'1'<<16 | (unsigned int)'2'<<24;
+	//overlay_config_t cfg;
+	//unsigned int format = DEC_VIDEO_FORMAT;	
 	
+	pthread_mutex_lock(&(decode_data.mutex_lock));
+	memset( &(decode_data.lastinfo), 0, sizeof(overlay_video_buffer_t));
 	
-	pthread_mutex_lock(&g_Mutex);
-	
-	// 2015.04.23 N.Tanaka SetConfigureしたかのフラグ。停止時にフラグ解除はしているが、念のためここでもフラグ解除
-	g_IsSetConfigure = 0;
-	
-	memset( &g_lastinfo, 0, sizeof(overlay_video_buffer_t) );
-	
-	// AndroidAutoでCloseされないので、Openされている時には一度閉じてあげる
-	if( g_DecoderState >= 0 ){
-		ErrorPrint( "decoder is not closed... so stop decoder!!\n" );
+	//--------init and open vpu------------
+	if(decode_data.IsDecoderOpen) {
+		ErrorPrint( "Decoder is in use! It will be close!\n" );
 		tcc_vpudec_close();
-		g_DecoderState = -1;
+		decode_data.IsDecoderOpen = 0;
 	}
+	if(tcc_vpudec_init(800, 476) < 0)
+		ErrorPrint("tcc_vpudec_init error!!");
+	else
+		decode_data.IsDecoderOpen = 1;
 	
-	// Decoder準備 : 成功すると0, 失敗で-1が返ってくる
-	if( g_DecoderState == -1 ){
-		#if 0
-		g_DecoderState = tcc_vpudec_init(800, 480);
-		#else
-		// 2015.3.2 yuichi mod
-		g_DecoderState = tcc_vpudec_init(800, 476);
-		#endif
+	//--------open overlay driver------------
+	if( decode_data.OverlayDrv >= 0 ){
+		close( decode_data.OverlayDrv );
+		decode_data.OverlayDrv = -1;
 	}
+	decode_data.OverlayDrv = open( OVERLAY_DRIVER, O_RDWR );
 	
-	// Overlay Driver準備
-	if( g_OverlayDrv >= 0 ){
-		close( g_OverlayDrv );
-	}
-	g_OverlayDrv = -1;
-	
-	g_OverlayDrv = open( OVERLAY_DRIVER, O_RDWR );
-	if( g_OverlayDrv < 0 ){
-		ErrorPrint( "Error : Overlay Driver Open Fail\n" );
+	if( decode_data.OverlayDrv < 0 ){
+		ErrorPrint( "Overlay Driver Open Fail\n" );
 	}else{
+#if 0
 		cfg.sx = 0;
 		cfg.sy = 0;
 		cfg.width = 800;
-		#if 0
 		cfg.height = 480;
-		#else
-		// 2015.3.2 yuichi mod
-		cfg.height = 480;
-		#endif
-		cfg.format = format;
+		cfg.format = DEC_VIDEO_FORMAT;
 		cfg.transform = 0;
 #if defined(CONFIG_OVERLAY_CROP)		
 		cfg.crop_src.left =0;
 		cfg.crop_src.top =0;
 		cfg.crop_src.width =cfg.width;
 		cfg.crop_src.height =cfg.height;
-#endif		
-		if(g_IsViewValid){	// 2015.04.23 : N.Tanaka 描画可否を判断する
-//FINAL			ioctl( g_OverlayDrv, OVERLAY_SET_IGNORE_PRIORITY, &ignore );
+#endif
+#if 0	
+		if(g_IsViewValid){	
 			ioctl( g_OverlayDrv, OVERLAY_SET_CONFIGURE, &cfg );
 			g_IsSetConfigure = 1;
 		}
+#endif
+#endif
+		//set overlay to the top layer, otherwise, we overlay maybe covered by UI.
+		//This value need set accroding to layer which use in overlay driver
+		unsigned int overlay_ovp=0; 
+		ioctl(decode_data.OverlayDrv, OVERLAY_GET_WMIXER_OVP, &decode_data.default_ovp); //backup default_ovp
+		ioctl(decode_data.OverlayDrv, OVERLAY_SET_WMIXER_OVP, &overlay_ovp);			 //set the new ovp value
 	}
-	unsigned int overlay_ovp=0;
-	ioctl(g_OverlayDrv, OVERLAY_GET_WMIXER_OVP, &default_ovp);
-	ioctl(g_OverlayDrv, OVERLAY_SET_WMIXER_OVP, &overlay_ovp);
-	
-	pthread_mutex_unlock(&g_Mutex);
+
+	pthread_mutex_unlock(&(decode_data.mutex_lock));
 	
 	return 0;
 }
 
 int tcc_vdec_close(void)
 {
-	pthread_mutex_lock(&g_Mutex);
+	pthread_mutex_lock(&(decode_data.mutex_lock));
 	
-	printf("default ovp = %d....\n",default_ovp);
-	ioctl(g_OverlayDrv, OVERLAY_SET_WMIXER_OVP, &default_ovp);
+	ioctl(decode_data.OverlayDrv, OVERLAY_SET_WMIXER_OVP, &(decode_data.default_ovp));
 	
-	if( g_OverlayDrv >= 0 ){
-		close( g_OverlayDrv );
+	if( decode_data.OverlayDrv >= 0 ){
+		close( decode_data.OverlayDrv );
 	}
-	g_OverlayDrv = -1;
-	g_IsSetConfigure = 0;	// 2015.04.23 : N.Tanaka
+	decode_data.OverlayDrv = -1;
+	decode_data.IsConfigured = 0;
 	
-	if( g_DecoderState >= 0 ){
+	if( decode_data.IsDecoderOpen ){
 		tcc_vpudec_close();
 	}
-	g_DecoderState = -1;
+	decode_data.IsDecoderOpen = 0;
 	
-	memset( &g_lastinfo, 0, sizeof(overlay_video_buffer_t) );	// 2015.04.24 N.Tanaka
+	memset( &(decode_data.lastinfo), 0, sizeof(overlay_video_buffer_t) );
 
-	pthread_mutex_unlock(&g_Mutex);
+	pthread_mutex_unlock(&(decode_data.mutex_lock));
+	pthread_mutex_destroy(&(decode_data.mutex_lock));
 	
 	return 0;
 }
@@ -211,16 +197,16 @@ int tcc_vdec_process_annexb_header( unsigned char* data, int datalen)
 {
 	int iret = 0;
 	unsigned int outputdata[11] = {0};
-	
 	unsigned int inputdata[4] = {0};
+	
 	inputdata[0] = (unsigned int)data;
 	inputdata[1] = (unsigned int)datalen;
 	
-	pthread_mutex_lock(&g_Mutex);
+	pthread_mutex_lock(&(decode_data.mutex_lock));
 	
-	if( g_DecoderState == -1 ){
+	if(decode_data.IsDecoderOpen == 0){
 		ErrorPrint( "Decoder is not opened!\n" );
-		pthread_mutex_unlock(&g_Mutex);
+		pthread_mutex_unlock(&(decode_data.mutex_lock));
 		return -1;
 	}
 	
@@ -228,13 +214,11 @@ int tcc_vdec_process_annexb_header( unsigned char* data, int datalen)
 	if(iret < 0)
 	{
 		ErrorPrint("Annexb Header Decode Error!\n");
-		pthread_mutex_unlock(&g_Mutex);
+		pthread_mutex_unlock(&(decode_data.mutex_lock));
 		return -1;
 	}
-	// Annex-Bヘッダは動画データではないので、描画要求はしない
 	
-	
-	pthread_mutex_unlock(&g_Mutex);
+	pthread_mutex_unlock(&(decode_data.mutex_lock));
 	
 	return 0;
 }
@@ -251,35 +235,41 @@ int tcc_vdec_process( unsigned char* data, int size)
 	int iret = 0;
 	unsigned int inputdata[4] = {0};
 	unsigned int outputdata[15] = {0};
-	//unsigned int crop_info[4]={0};
-	//unsigned int scaler_info[2]={0};
 	unsigned int screen_width, screen_height;
 	overlay_video_buffer_t info;
 	
-	pthread_mutex_lock(&g_Mutex);
+	pthread_mutex_lock(&(decode_data.mutex_lock));
 	
 	inputdata[0] = (unsigned int)data;
 	inputdata[1] = (unsigned int)size;
 	
-	screen_width = LCD_WIDTH;   //FIXME ; These value need get from kernel.
+	screen_width  = LCD_WIDTH;   //FIXME ; These value need to get from system.
 	screen_height = LCD_HEIGHT;
 	
-	if( g_DecoderState == -1 ){
-		ErrorPrint( "decoder is not opened...\n" );
-		pthread_mutex_unlock(&g_Mutex);
+	if(decode_data.IsDecoderOpen == 0){
+		ErrorPrint( "Decoder is not opened!!\n" );
+		pthread_mutex_unlock(&(decode_data.mutex_lock));
 		return -1;
 	}
+	if(decode_data.OverlayDrv < 0) {
+		ErrorPrint( "Overlay driver is not opened!!\n" );
+		pthread_mutex_unlock(&(decode_data.mutex_lock));
+		return -1;
+	}		
 	
-	//iret = decoder_decode( data, size, outputdata );
+	//////////////  Start to Decode video frame
 	iret = tcc_vpudec_decode(inputdata, outputdata);
 	
-	if( iret >= 0 ){
-		
-		if( g_OverlayDrv >= 0 ){
-			
+	if( iret < 0 ) {
+		//ErrorPrint( "Decode Failed!!\n" );
+		//pthread_mutex_unlock(&(decode_data.mutex_lock));
+		//return -1;
+	}		
+	//////////////  Start to Push the video /////////////////////
+	
 			info.cfg.width = outputdata[8];
 			info.cfg.height = outputdata[9];
-			info.cfg.format = VIOC_IMG_FMT_YUV420IL0;
+			info.cfg.format = DEC_VIDEO_FORMAT;
 			info.cfg.transform = 0;		
 			info.addr = outputdata[1];		// Y Address;
 			
@@ -345,9 +335,9 @@ int tcc_vdec_process( unsigned char* data, int size)
 				info.cfg.sy = 0;
 				info.cfg.crop_src.height = screen_height;
 			}
-			//DebugPrint("Pos [%d,%d], (%d,%d) -> (%d x %d)... \n", info.cfg.sx, info.cfg.sy, 
-			//										info.cfg.width, info.cfg.height, 
-			//										info.cfg.crop_src.width, info.cfg.crop_src.height);
+			DebugPrint("Pos [%d,%d], (%d,%d) -> (%d x %d)... \n", info.cfg.sx, info.cfg.sy, 
+													info.cfg.width, info.cfg.height, 
+													info.cfg.crop_src.width, info.cfg.crop_src.height);
 #endif
 #if defined(CONFIG_OVERLAY_SCALE)			
 			///for scaler
@@ -385,30 +375,22 @@ int tcc_vdec_process( unsigned char* data, int size)
 			//ioctl( g_OverlayDrv, OVERLAY_SET_SCALER_INFO, &scaler_info);
 #endif			
 			
-			if(g_IsViewValid){	// 2015.04.23 : N.Tanaka 描画可否を判断する
+			//if(g_IsViewValid)
+			{	
 				
-				// Start時にフラグが立っておらずSetConfigureされていない場合にはここでSetConfiguresする
-				if( g_IsSetConfigure == 0 ){
+				if( decode_data.IsConfigured == 0 ){
 					SetConfigure();
 				}
-				ioctl( g_OverlayDrv, OVERLAY_SET_CONFIGURE, &info.cfg );	
-				ioctl( g_OverlayDrv, OVERLAY_PUSH_VIDEO_BUFFER, &info );
-			}else{
+				ioctl( decode_data.OverlayDrv, OVERLAY_SET_CONFIGURE, &info.cfg );	
+				ioctl( decode_data.OverlayDrv, OVERLAY_PUSH_VIDEO_BUFFER, &info );
+			//}else{
 				//printf("IsViewValid is false...\n");
 			}
-//#endif				
-			// 2015.04.24 N.Tanaka
-			// 最後のDecodeデータ情報を保持しておく
-			memcpy( &g_lastinfo, &info, sizeof(overlay_video_buffer_t) );
+
+			memcpy( &(decode_data.lastinfo), &info, sizeof(overlay_video_buffer_t) );
 			
-		}else{
-			ErrorPrint( "Decode but Overlay Driver is not opened\n" );
-		}
-	}else{
-		ErrorPrint( "Decode fail\n" );
-	}
 	
-	pthread_mutex_unlock(&g_Mutex);
+	pthread_mutex_unlock(&(decode_data.mutex_lock));
 	
 	return 0;
 }

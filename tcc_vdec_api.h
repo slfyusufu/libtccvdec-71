@@ -12,18 +12,32 @@
 #ifndef	__TCC_VDEC_API_H__
 #define	__TCC_VDEC_API_H__
 
-#include <stdint.h>	// for uint64_t
+#include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <unistd.h>
+#include <string.h>
+#include <pthread.h>
+#include <fcntl.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/ioctl.h>
+
+#include <tcc_overlay_ioctl.h>
+#include <mach/vioc_global.h>
+
+#include "tcc_vpudec_intf.h"
 
 #ifdef	__cplusplus
 extern "C"{
 #endif
 
-int tcc_vdec_open(void);
-int tcc_vdec_close(void);
-int tcc_vdec_process_annexb_header( unsigned char* data, int datalen);
-int tcc_vdec_process( unsigned char* data, int size);
-//int libH264Decoder_SetViewValidFlag(int isValid);
-int tcc_vdec_init(int x, int y, int w, int h);
+extern int tcc_vdec_open(void);
+extern int tcc_vdec_close(void);
+extern int tcc_vdec_process_annexb_header( unsigned char* data, int datalen);
+extern int tcc_vdec_process( unsigned char* data, int size);
+extern int tcc_vdec_init(int x, int y, int w, int h);
 
 #ifdef	__cplusplus
 }
