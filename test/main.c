@@ -1,3 +1,12 @@
+//********************************************************************************************
+/**
+ * @file        main.c
+ * @brief		Test demo for libtccvdec. 
+ *
+ * @author      Yusuf.Sha, Telechips Shenzhen Rep.
+ * @date        2016/11/08
+ */
+//********************************************************************************************
 
 #include <stdint.h>
 #include <string.h>
@@ -8,24 +17,16 @@ static int h264RawDataDecode()
 {
 	int FileNo = 0;
 	FILE* fp;
-//	const char filepath_base[] = "/mnt/SD1p1/dump_data/data_";
 	const char filepath_base[] = "/home/root/dump/";
-//	const char filepath_base[] = "/nand1/dump_data/";
-//	char *filepath_base = argv;
 	char filepath[260] = {0};
 	char* data = NULL;
-	
 	int g_IsAnnexB_OtherFile = 1;
 	
-	if( g_IsAnnexB_OtherFile == 1 ){	// Annex-Bヘッダを別ファイルとして保持している設定の場合
-		
-		//FILE* annexb = fopen( "/run/media/sda1/myself/h264/annexb/data_0000.h264", "r" );
-		//FILE* annexb = fopen( "/run/media/sda1/myself/h264/test.264", "rb" );
+	if( g_IsAnnexB_OtherFile == 1 ){	// Annex-B
 		FILE* annexb = fopen( "/home/root/dump/header.264", "rb" );
 		if( !annexb ){
 			printf( "Error!! ANNEX-B Header File Can't Open\n" );
 		}else{
-			printf( "Annex-B Header Test\n" );
 			int iAnnex = fseek( annexb, 0, SEEK_END );
 			if( iAnnex < 0 ){
 				printf( "Error Fseek\n" );
@@ -43,27 +44,24 @@ static int h264RawDataDecode()
 						if( AnnexRead < AnnexLen ){
 							printf( "Annex File Read Fail?\n" );
 						}
-						
 						// Decode
 						tcc_vdec_process_annexb_header( (unsigned char*)AnnexBuf, AnnexLen);
-						printf( "Annex-B Header Test ..... end\n" );
+						printf( "Decoded Annex-B Header!\n" );
 					}
 				}
 			}
 		}
 		
 	}
-	//libH264Decoder_SetViewValidFlag(1);
+
 	while( 1 )
 	{
-		
 		memset( filepath, 0, sizeof(filepath) );
 		sprintf( filepath, "%s%04d.h264", filepath_base, FileNo );
 		FileNo++;
 		
 		// File Open
 		fp = fopen(filepath,"r" );
-//		fp = fopen("/home/root/test.264","rb" );
 		if( !fp ){
 			printf( "%s can't open\n", filepath );
 			break;
@@ -100,27 +98,14 @@ static int h264RawDataDecode()
 		}
 		fread( data, 1, lSize, fp );
 		
-		// Unite File >>
-		#if 0
-		FILE* fw = fopen( "/temp/AAA.h264", "a" );
-		if( !fw ){
-			printf( "Unite File Open fail\n" );
-		}else{
-			fwrite( data, 1, lSize, fw );
-			fclose( fw );
-		}
-		#endif
-		// <<
-		
 		// File Close
 		fclose( fp );
 		
 		// Decode
-		//unsigned int outputdata[11] = {0};
 		iret = tcc_vdec_process( (unsigned char*)data, (int)lSize);
 		
 		if( iret < 0 ){
-			printf( "Decode Error [%d]\n", (FileNo-1) );
+			//printf( "Decode Error [%d]\n", (FileNo-1) );
 		}
 		
 		free( data );
@@ -134,16 +119,8 @@ static int h264RawDataDecode()
 
 int main( int argc, char** argv )
 {
-	//unsigned char* data = NULL;
-	//int size = 0;
-	//uint64_t inDisplayTick = 0;
-	
-	tcc_vdec_init(0,0,800,480);
+	tcc_vdec_init();
 	tcc_vdec_open();
-	
-//	libH264Decoder_AnnexBHeader_Write( data, size );
-	
-//	libH264Decoder_Write( data, size, inDisplayTick );
 	
 	h264RawDataDecode();
 	

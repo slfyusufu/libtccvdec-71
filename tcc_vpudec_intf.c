@@ -1,6 +1,6 @@
 //********************************************************************************************
 /**
- * @file        tcc_vpudec_intf.h
+ * @file        tcc_vpudec_intf.c
  * @brief		Decode one video frame using TCC VPU, now, we just set it to H264 decode. 
  * 				This interface contain : Init VPU, Decode frame and Close VPU.
  *

@@ -1,6 +1,6 @@
 //********************************************************************************************
 /**
- * @file        tcc_vdec_api.h
+ * @file        tcc_vdec_api.c
  * @brief		Decode H264 frame and display image onto screen through overlay driver. 
  * 				This interface contain : 
  *
@@ -9,9 +9,13 @@
  */
 //********************************************************************************************
 
+#include <mach/tcc_overlay_ioctl.h>
+#include <mach/vioc_global.h>
+
+#include "tcc_vpudec_intf.h"
 #include "tcc_vdec_api.h"
 
-#define	DEBUG_MODE
+//#define	DEBUG_MODE
 #ifdef	DEBUG_MODE
 	#define	DebugPrint( fmt, ... )	printf( "[TCC_VDEC_API](D):"fmt, ##__VA_ARGS__ )
 	#define	ErrorPrint( fmt, ... )	printf( "[TCC_VDEC_API](E):"fmt, ##__VA_ARGS__ )
@@ -24,21 +28,6 @@
 #define	OVERLAY_DRIVER	"/dev/overlay"
 #define DEC_VIDEO_FORMAT VIOC_IMG_FMT_YUV420IL0
 
-//static int g_OverlayDrv = -1;
-// Decoder State
-//static int g_DecoderState = -1;
-
-//add for ovp setting
-//static unsigned int default_ovp;
-
-//static int g_IsViewValid = 0;
-//static int g_IsSetConfigure = 0;	
-//static overlay_video_buffer_t g_lastinfo;
-
-// Mutex
-//static pthread_mutex_t g_Mutex = PTHREAD_MUTEX_INITIALIZER;
-
-
 typedef struct _DecodeDate {
 	
 	int 					OverlayDrv;		//overlay driver handler
@@ -48,53 +37,14 @@ typedef struct _DecodeDate {
 	unsigned int			default_ovp;	//set overlay layer
 	overlay_video_buffer_t	lastinfo;		//backup last_overlay_info
 	
-	pthread_mutex_t mutex_lock;
+	pthread_mutex_t 		mutex_lock;
 } DecodeDate;
 
 static DecodeDate decode_data;
 
-static void SetConfigure(void)
+
+int tcc_vdec_init()
 {
-	overlay_config_t cfg;
-	//unsigned int format = DEC_VIDEO_FORMAT;
-	cfg.sx = 0;
-	cfg.sy = 0;
-	cfg.width = 800;
-	cfg.height = 480;
-	cfg.format = DEC_VIDEO_FORMAT;
-	cfg.transform = 0;
-	ioctl( decode_data.OverlayDrv, OVERLAY_SET_CONFIGURE, &cfg );
-	decode_data.IsConfigured = 1;
-	
-}
-#if 0
-int tcc_SetViewValidFlag(int isValid)
-{
-	pthread_mutex_lock(&(decode_data.mutex_lock));
-	
-	g_IsViewValid = isValid;
-	
-	if( isValid == 1 ){
-		if( decode_data.OverlayDrv >= 0 ){
-			if( g_IsSetConfigure == 0 ){
-				SetConfigure();
-			}
-			if( g_lastinfo.addr != 0 ){	
-				ioctl( decode_data.OverlayDrv, OVERLAY_PUSH_VIDEO_BUFFER, &g_lastinfo );
-			}
-		}
-	}
-	
-	pthread_mutex_unlock(&(decode_data.mutex_lock));
-	
-	return 0;
-}
-#endif
-int tcc_vdec_init(int sx, int sy, int width, int height)
-{
-	//int visible=1;
-	//tcc_SetViewValidFlag(visible);
-	
 	//Init decode_data value
 	decode_data.OverlayDrv = -1;
 	decode_data.IsViewValid = 1;
@@ -108,10 +58,7 @@ int tcc_vdec_init(int sx, int sy, int width, int height)
 }
 
 int tcc_vdec_open(void)
-{
-	//overlay_config_t cfg;
-	//unsigned int format = DEC_VIDEO_FORMAT;	
-	
+{	
 	pthread_mutex_lock(&(decode_data.mutex_lock));
 	memset( &(decode_data.lastinfo), 0, sizeof(overlay_video_buffer_t));
 	
@@ -121,7 +68,7 @@ int tcc_vdec_open(void)
 		tcc_vpudec_close();
 		decode_data.IsDecoderOpen = 0;
 	}
-	if(tcc_vpudec_init(800, 476) < 0)
+	if(tcc_vpudec_init(800, 466) < 0)
 		ErrorPrint("tcc_vpudec_init error!!");
 	else
 		decode_data.IsDecoderOpen = 1;
@@ -136,33 +83,13 @@ int tcc_vdec_open(void)
 	if( decode_data.OverlayDrv < 0 ){
 		ErrorPrint( "Overlay Driver Open Fail\n" );
 	}else{
-#if 0
-		cfg.sx = 0;
-		cfg.sy = 0;
-		cfg.width = 800;
-		cfg.height = 480;
-		cfg.format = DEC_VIDEO_FORMAT;
-		cfg.transform = 0;
-#if defined(CONFIG_OVERLAY_CROP)		
-		cfg.crop_src.left =0;
-		cfg.crop_src.top =0;
-		cfg.crop_src.width =cfg.width;
-		cfg.crop_src.height =cfg.height;
-#endif
-#if 0	
-		if(g_IsViewValid){	
-			ioctl( g_OverlayDrv, OVERLAY_SET_CONFIGURE, &cfg );
-			g_IsSetConfigure = 1;
-		}
-#endif
-#endif
-		//set overlay to the top layer, otherwise, we overlay maybe covered by UI.
-		//This value need set accroding to layer which use in overlay driver
+		/*set overlay to the top layer, otherwise, we overlay maybe covered by UI.
+		* This value need set accroding to layer which use in overlay driver
+		*/
 		unsigned int overlay_ovp=0; 
-		ioctl(decode_data.OverlayDrv, OVERLAY_GET_WMIXER_OVP, &decode_data.default_ovp); //backup default_ovp
+		//ioctl(decode_data.OverlayDrv, OVERLAY_GET_WMIXER_OVP, &(decode_data.default_ovp)); //backup default_ovp
 		ioctl(decode_data.OverlayDrv, OVERLAY_SET_WMIXER_OVP, &overlay_ovp);			 //set the new ovp value
 	}
-
 	pthread_mutex_unlock(&(decode_data.mutex_lock));
 	
 	return 0;
@@ -184,6 +111,7 @@ int tcc_vdec_close(void)
 		tcc_vpudec_close();
 	}
 	decode_data.IsDecoderOpen = 0;
+	decode_data.IsViewValid = 0;
 	
 	memset( &(decode_data.lastinfo), 0, sizeof(overlay_video_buffer_t) );
 
@@ -262,136 +190,93 @@ int tcc_vdec_process( unsigned char* data, int size)
 	
 	if( iret < 0 ) {
 		//ErrorPrint( "Decode Failed!!\n" );
-		//pthread_mutex_unlock(&(decode_data.mutex_lock));
-		//return -1;
+		pthread_mutex_unlock(&(decode_data.mutex_lock));
+		return -1;
 	}		
 	//////////////  Start to Push the video /////////////////////
-	
-			info.cfg.width = outputdata[8];
-			info.cfg.height = outputdata[9];
-			info.cfg.format = DEC_VIDEO_FORMAT;
-			info.cfg.transform = 0;		
-			info.addr = outputdata[1];		// Y Address;
-			
-			//DebugPrint("Video format is 0x%x\n",info.cfg.format);
-			
+
+	info.cfg.width = outputdata[8];
+	info.cfg.height = outputdata[9];
+	info.cfg.format = DEC_VIDEO_FORMAT;
+	info.cfg.transform = 0;		
+	info.addr = outputdata[1];		// Y Address;
+
 #if !defined(CONFIG_OVERLAY_CROP) && !defined(CONFIG_OVERLAY_SCALE)
-			//Set position X
-			if(info.cfg.width <= screen_width)
-			{
-				info.cfg.sx =(screen_width-info.cfg.width)/2;
-			}
-			else
-			{
-				ErrorPrint("Image width is more then screen_width, need scaler!\n");
-				info.cfg.sx = 0;
-				info.cfg.width = screen_width;
-			}
-			//Set position Y
-			if(info.cfg.height <= screen_height)
-			{
-				info.cfg.sy =(screen_height-info.cfg.height)/2;
-			}
-			else
-			{
-				ErrorPrint("Image height is more then screen_hieght, need scaler!\n");
-				info.cfg.sy = 0;
-				info.cfg.height = screen_height;
-			}
+	//Set position X
+	if(info.cfg.width <= screen_width)
+	{
+		info.cfg.sx =(screen_width-info.cfg.width)/2;
+	}
+	else
+	{
+		ErrorPrint("Image width is more then screen_width, need scaler!\n");
+		info.cfg.sx = 0;
+		info.cfg.width = screen_width;
+	}
+	//Set position Y
+	if(info.cfg.height <= screen_height)
+	{
+		info.cfg.sy =(screen_height-info.cfg.height)/2;
+	}
+	else
+	{
+		ErrorPrint("Image height is more then screen_hieght, need scaler!\n");
+		info.cfg.sy = 0;
+		info.cfg.height = screen_height;
+	}
 #endif			
 											
 #if defined(CONFIG_OVERLAY_CROP)	
-			info.addr1 = outputdata[2];		// U Address;
-			info.addr2 = outputdata[3];		// V Address;
-			
-			//for crop
-			info.cfg.crop_src.left = 0;
-			info.cfg.crop_src.top = 0;
-			info.cfg.crop_src.width = outputdata[8]-outputdata[13];
-			info.cfg.crop_src.height = outputdata[9]-outputdata[14];
-			
-			info.cfg.sx = (LCD_WIDTH-info.cfg.crop_src.width)/2;
-			info.cfg.sy = (LCD_HEIGHT-info.cfg.crop_src.height)/2;
-			
-			//Set position X
-			if(info.cfg.crop_src.width <= screen_width)
-			{
-				info.cfg.sx =(screen_width-info.cfg.crop_src.width)/2;
-			}
-			else
-			{
-				ErrorPrint("Image width is more then screen_width, need scaler!\n");
-				info.cfg.sx = 0;
-				info.cfg.crop_src.width = screen_width;
-			}
-			//Set position Y
-			if(info.cfg.crop_src.height <= screen_height)
-			{
-				info.cfg.sy =(screen_height-info.cfg.crop_src.height)/2;
-			}
-			else
-			{
-				ErrorPrint("Image height is more then screen_hieght, need scaler!\n");
-				info.cfg.sy = 0;
-				info.cfg.crop_src.height = screen_height;
-			}
-			DebugPrint("Pos [%d,%d], (%d,%d) -> (%d x %d)... \n", info.cfg.sx, info.cfg.sy, 
-													info.cfg.width, info.cfg.height, 
-													info.cfg.crop_src.width, info.cfg.crop_src.height);
+	info.addr1 = outputdata[2];		// U Address;
+	info.addr2 = outputdata[3];		// V Address;
+	
+	//for crop
+	info.cfg.crop_src.left = 0;
+	info.cfg.crop_src.top = 0;
+	info.cfg.crop_src.width = outputdata[8]-outputdata[13];
+	info.cfg.crop_src.height = outputdata[9]-outputdata[14];
+	
+	info.cfg.sx = (LCD_WIDTH-info.cfg.crop_src.width)/2;
+	info.cfg.sy = (LCD_HEIGHT-info.cfg.crop_src.height)/2;
+	
+	//Set position X
+	if(info.cfg.crop_src.width <= screen_width)
+	{
+		info.cfg.sx =(screen_width-info.cfg.crop_src.width)/2;
+	}
+	else
+	{
+		ErrorPrint("Image width is more then screen_width, need scaler!\n");
+		info.cfg.sx = 0;
+		info.cfg.crop_src.width = screen_width;
+	}
+	//Set position Y
+	if(info.cfg.crop_src.height <= screen_height)
+	{
+		info.cfg.sy =(screen_height-info.cfg.crop_src.height)/2;
+	}
+	else
+	{
+		ErrorPrint("Image height is more then screen_hieght, need scaler!\n");
+		info.cfg.sy = 0;
+		info.cfg.crop_src.height = screen_height;
+	}
+	DebugPrint("Pos [%d,%d], (%d,%d) -> (%d x %d)... \n", info.cfg.sx, info.cfg.sy, 
+											info.cfg.width, info.cfg.height, 
+											info.cfg.crop_src.width, info.cfg.crop_src.height);
 #endif
-#if defined(CONFIG_OVERLAY_SCALE)			
-			///for scaler
-			float ratio0 = (float)info.cfg.width/(float)info.cfg.height;
-			float ratio1 = (float)info.cfg.height/(float)info.cfg.width;
-			//printf("[Yusuf] ratio0=%.5f, ratio1=%.5f, target_ratio=%.5f...\n",ratio0, ratio1, TARGET_RATIO);
-			if((ratio0 >= TARGET_RATIO) || (ratio1 >= TARGET_RATIO)) //ratio is 16:9
-			{
-				if(info.cfg.width > info.cfg.height)
-				{
-					scaler_info[0] = TARGET_WIDTH;
-					//scaler_info[1] = (800*9)/16;
-					scaler_info[1] = (TARGET_WIDTH*(float)crop_info[3])/(float)crop_info[2];
-				}else{
-					//scaler_info[0] = (480*9)/16;
-					scaler_info[0] = (TARGET_HEIGHT*(float)crop_info[2])/(float)crop_info[3];
-					scaler_info[1] = TARGET_HEIGHT;
-				}
-			}else{//ratio is 4:3
-				if(info.cfg.width > info.cfg.height)
-				{
-					scaler_info[0] = (480*4)/3;//(unsigned int)(480.00 * (MAX(ratio0,ratio1))); //640;
-					scaler_info[1] = 480;
-				}else{
-					scaler_info[0] = (480*3)/4;//(unsigned int)(480.00 / (MAX(ratio0,ratio1))); //360;
-					scaler_info[1] = 480;
-				}
-			}
-			info.cfg.sx = (800-scaler_info[0])/2;
-			info.cfg.sy = (480-scaler_info[1])/2;
-			printf("[libH264] Scaler: src (%d x %d) -- dst (%d x %d) \n", info.cfg.width, info.cfg.height, scaler_info[0], scaler_info[1]);
-			printf("[libH264] (%d,%d) - (%d x %d)... \n",info.cfg.sx, info.cfg.sy, scaler_info[0], scaler_info[1]);
 
-			//ioctl( g_OverlayDrv, OVERLAY_SET_CROP_INFO, &crop_info);
-			//ioctl( g_OverlayDrv, OVERLAY_SET_SCALER_INFO, &scaler_info);
-#endif			
-			
-			//if(g_IsViewValid)
-			{	
-				
-				if( decode_data.IsConfigured == 0 ){
-					SetConfigure();
-				}
-				ioctl( decode_data.OverlayDrv, OVERLAY_SET_CONFIGURE, &info.cfg );	
-				ioctl( decode_data.OverlayDrv, OVERLAY_PUSH_VIDEO_BUFFER, &info );
-			//}else{
-				//printf("IsViewValid is false...\n");
-			}
+	if(decode_data.IsViewValid)
+	{	
+		ioctl( decode_data.OverlayDrv, OVERLAY_PUSH_VIDEO_BUFFER, &info );
+	}else{
+		DebugPrint("View is invalid!\n");
+	}
+	memcpy( &(decode_data.lastinfo), &info, sizeof(overlay_video_buffer_t) );
 
-			memcpy( &(decode_data.lastinfo), &info, sizeof(overlay_video_buffer_t) );
-			
-	
+
 	pthread_mutex_unlock(&(decode_data.mutex_lock));
-	
+
 	return 0;
 }
 

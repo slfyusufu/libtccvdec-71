@@ -24,10 +24,6 @@
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 
-#include <tcc_overlay_ioctl.h>
-#include <mach/vioc_global.h>
-
-#include "tcc_vpudec_intf.h"
 
 #ifdef	__cplusplus
 extern "C"{
@@ -37,7 +33,7 @@ extern int tcc_vdec_open(void);
 extern int tcc_vdec_close(void);
 extern int tcc_vdec_process_annexb_header( unsigned char* data, int datalen);
 extern int tcc_vdec_process( unsigned char* data, int size);
-extern int tcc_vdec_init(int x, int y, int w, int h);
+extern int tcc_vdec_init();
 
 #ifdef	__cplusplus
 }
