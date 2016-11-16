@@ -14,9 +14,11 @@
 
 //#define	DEBUG_MODE
 #ifdef	DEBUG_MODE
-	#define	DebugPrint( fmt, ... ) printf( "[TCC_VPUDEC_INTF] :"fmt"\n", ##__VA_ARGS__ )
+	#define	DebugPrint( fmt, ... )	printf( "[TCC_VPUDEC_INTF](D):"fmt"\n", ##__VA_ARGS__ )
+	#define	ErrorPrint( fmt, ... )	printf( "[TCC_VPUDEC_INTF](E):"fmt"\n", ##__VA_ARGS__ )
 #else
 	#define	DebugPrint( fmt, ... )
+	#define	ErrorPrint( fmt, ... )	printf( "[TCC_VPUDEC_INTF](E):"fmt"\n", ##__VA_ARGS__ )
 #endif
 
 ///////////   Global Define    //////////////////////
@@ -390,7 +392,7 @@ static void VideoDecErrorProcess(int ret)
 {
     if(dec_private->cntDecError > MAX_CONSECUTIVE_VPU_FAIL_TO_RESTORE_COUNT)
     {
-		DebugPrint("Consecutive decode-cmd failure is occurred");
+		ErrorPrint("Consecutive decode-cmd failure is occurred");
     }
 
 #ifdef RESTORE_DECODE_ERR
@@ -408,7 +410,7 @@ static void VideoDecErrorProcess(int ret)
 		dec_private->isSequenceHeaderDone = 0;
 		dec_private->cntDecError = 1;
 		dec_private->in_index = dec_private->out_index = dec_private->frm_clear = 0;
-		DebugPrint("try to restore decode error");
+		ErrorPrint("try to restore decode error");
 	}
 #endif
 }
@@ -790,7 +792,7 @@ DECODER_INIT_NoReordering(tDEC_INIT_PARAMS *pInit)
 	
 	dec_private = (tDEC_PRIVATE*)calloc( 1, sizeof(tDEC_PRIVATE) );
 	if( dec_private == NULL ){
-		DebugPrint( "%s calloc fail!\n", __func__);
+		ErrorPrint( "%s calloc fail!\n", __func__);
 		return -1;
 	}
 	
@@ -1390,7 +1392,7 @@ DECODER_DEC(
 														dec_private->pVideoDecodInstance.gsVDecOutput.m_DecOutInfo.m_iPicType, 
 														dec_private->pVideoDecodInstance.gsVDecOutput.m_DecOutInfo.m_iPictureStructure );
 		if (frameType == 0)
-			DebugPrint("Unknow Frame!");
+		{	DebugPrint("Unknow Frame!");}
 		if( dec_private->pVideoDecodInstance.gsVDecInput.m_iFrameSearchEnable )
 		{
 			dec_private->frameSearchOrSkip_flag = 2;//I-frame Search Mode disable and B-frame Skip Mode enable
@@ -1586,7 +1588,7 @@ static void save_decoded_frame(unsigned char* Y, unsigned char* U, unsigned char
 	if(!pFs){
 		pFs = fopen(name, "ab+");
 		if (!pFs) {
-			DebugPrint("Cannot open '%s'",name);
+			ErrorPrint("Cannot open '%s'",name);
 			return;
 		}
 	}
@@ -1611,7 +1613,7 @@ int tcc_vpudec_init( int width, int height )
 	
 	if(ret < 0)
 	{
-		DebugPrint( "vpudec_init fail!!\n" );
+		ErrorPrint( "vpudec_init fail!!\n" );
 		return -1;
 	}
 	return 0;
@@ -1639,12 +1641,12 @@ int tcc_vpudec_decode(unsigned int *pInputStream, unsigned int *pOutstream)
 	ret = DECODER_DEC(&Input, &Output, &Result);
 	if(ret < 0)
 	{
-		DebugPrint( "[VDEC_DEC] [Err:%d] video decoder dec", ret );
+		ErrorPrint( "[Err:%d] video decoder dec", ret );
 		return ret;
 	}
 	if(Result.no_frame_output)
 	{
-		DebugPrint( "[VDEC_DEC]  No_frame_output");
+		ErrorPrint( "No_frame_output");
 		return -1;
 	}
 	else

@@ -27,6 +27,8 @@
 // Overlay Driver
 #define	OVERLAY_DRIVER	"/dev/overlay"
 #define DEC_VIDEO_FORMAT VIOC_IMG_FMT_YUV420IL0
+#define OVERLAY_GET_WMIXER_OVP      70
+#define OVERLAY_SET_WMIXER_OVP      80
 
 typedef struct _DecodeDate {
 	
@@ -35,6 +37,8 @@ typedef struct _DecodeDate {
 	bool					IsDecoderOpen;	//whether decode is in use ?
 	bool					IsConfigured;	//whether be configured ?
 	unsigned int			default_ovp;	//set overlay layer
+	unsigned int			LCD_width;		//LCD size - width
+	unsigned int			LCD_height;		//LCD size - height
 	overlay_video_buffer_t	lastinfo;		//backup last_overlay_info
 	
 	pthread_mutex_t 		mutex_lock;
@@ -43,7 +47,7 @@ typedef struct _DecodeDate {
 static DecodeDate decode_data;
 
 
-int tcc_vdec_init()
+int tcc_vdec_init(unsigned int width, unsigned int height)
 {
 	//Init decode_data value
 	decode_data.OverlayDrv = -1;
@@ -51,6 +55,8 @@ int tcc_vdec_init()
 	decode_data.IsDecoderOpen = 0;
 	decode_data.IsConfigured = 0;
 	decode_data.default_ovp = 24;
+	decode_data.LCD_width = width;
+	decode_data.LCD_height = height;
 	
 	pthread_mutex_init(&(decode_data.mutex_lock),NULL);
 	
@@ -151,8 +157,6 @@ int tcc_vdec_process_annexb_header( unsigned char* data, int datalen)
 	return 0;
 }
 
-#define LCD_WIDTH 1024
-#define LCD_HEIGHT 600
 #define MAX(a,b) (a>b)?a:b
 #define TARGET_WIDTH 800.00
 #define TARGET_HEIGHT 480.00
@@ -171,8 +175,8 @@ int tcc_vdec_process( unsigned char* data, int size)
 	inputdata[0] = (unsigned int)data;
 	inputdata[1] = (unsigned int)size;
 	
-	screen_width  = LCD_WIDTH;   //FIXME ; These value need to get from system.
-	screen_height = LCD_HEIGHT;
+	screen_width  = decode_data.LCD_width;
+	screen_height = decode_data.LCD_height;
 	
 	if(decode_data.IsDecoderOpen == 0){
 		ErrorPrint( "Decoder is not opened!!\n" );
@@ -236,8 +240,8 @@ int tcc_vdec_process( unsigned char* data, int size)
 	info.cfg.crop_src.width = outputdata[8]-outputdata[13];
 	info.cfg.crop_src.height = outputdata[9]-outputdata[14];
 	
-	info.cfg.sx = (LCD_WIDTH-info.cfg.crop_src.width)/2;
-	info.cfg.sy = (LCD_HEIGHT-info.cfg.crop_src.height)/2;
+	info.cfg.sx = (decode_data.LCD_width-info.cfg.crop_src.width)/2;
+	info.cfg.sy = (decode_data.LCD_height-info.cfg.crop_src.height)/2;
 	
 	//Set position X
 	if(info.cfg.crop_src.width <= screen_width)

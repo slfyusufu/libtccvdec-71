@@ -14,7 +14,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <vdec_v2.h>
+#include "vdec_v2.h"
 
 /***********************************************************/
 //COMMON PARAMETERS

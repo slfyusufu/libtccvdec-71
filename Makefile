@@ -51,7 +51,7 @@ SOURCES  = tcc_vdec_api.c tcc_vpudec_intf.c
 $(TARGET): $(OBJECTS) $(LIBS)
 	@[ -d "./lib" ] || mkdir -p "./lib"
 	$(COMPILER) $(SHAREDLIB_FLAGS) $(LINK_PARAM) $(LDFLAGS) $(LIB_FILES) -o $@ $^
-#	$(STRIP) $(TARGET)
+	$(STRIP) $(TARGET)
 
 $(OBJDIR)/%.o: %.c
 	@[ -d $(OBJDIR) ] || mkdir -p $(OBJDIR)

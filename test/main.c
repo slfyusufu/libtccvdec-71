@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <tcc_vdec_api.h>
+
 static int h264RawDataDecode()
 {
 	int FileNo = 0;
@@ -47,6 +48,7 @@ static int h264RawDataDecode()
 						// Decode
 						tcc_vdec_process_annexb_header( (unsigned char*)AnnexBuf, AnnexLen);
 						printf( "Decoded Annex-B Header!\n" );
+						free(AnnexBuf);
 					}
 				}
 			}
@@ -119,7 +121,7 @@ static int h264RawDataDecode()
 
 int main( int argc, char** argv )
 {
-	tcc_vdec_init();
+	tcc_vdec_init(1024, 600);//give LCD size to library
 	tcc_vdec_open();
 	
 	h264RawDataDecode();
