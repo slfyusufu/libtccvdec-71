@@ -35,6 +35,7 @@ extern int tcc_vdec_open(void);
 extern int tcc_vdec_close(void);
 extern int tcc_vdec_process_annexb_header( unsigned char* data, int datalen);
 extern int tcc_vdec_process( unsigned char* data, int size);
+extern void tcc_vdec_SetViewFlag(int isValid);
 extern int tcc_vdec_init(unsigned int width, unsigned int height);
 
 #ifdef	__cplusplus

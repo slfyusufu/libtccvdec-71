@@ -4,7 +4,7 @@
  * @brief		Decode one video frame using TCC VPU, now, we just set it to H264 decode. 
  * 				This interface contain : Init VPU, Decode frame and Close VPU.
  *
- * @author      Yusuf.Sha, Telechips Shenzhen Rep.
+ * @author      Telechips Shenzhen Rep.
  * @date        2016/11/08
  */
 //********************************************************************************************
